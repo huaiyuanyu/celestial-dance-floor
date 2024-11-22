@@ -190,7 +190,7 @@ const ThreeScene: React.FC = () => {
         const angleX = deltaMove.x * rotationSpeed;
         const angleY = deltaMove.y * rotationSpeed;
 
-        const radius = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
+        //const radius = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
         const spherical = new THREE.Spherical();
         spherical.setFromVector3(camera.position);
 
