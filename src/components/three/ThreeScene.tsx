@@ -156,6 +156,16 @@ const ThreeScene: React.FC = () => {
         isDragging = true;
       };
 
+      const handleTouchDown = (event: TouchEvent) => {
+        //store initial touch position
+        const touch = event.touches[0];
+
+        event.preventDefault();
+
+        initialMousePosition = {x: touch.clientX, y: touch.clientY};
+        isDragging = true;
+      }
+
       const handleMouseUp = (event: MouseEvent) => {
         // Stop dragging
         isDragging = false;
@@ -169,6 +179,24 @@ const ThreeScene: React.FC = () => {
           handlePlanetClick(initialMousePosition); // Pass mousedown position
         }
       };
+
+      const handleTouchUp = (event: TouchEvent) => {
+        // Stop dragging
+        isDragging = false;
+
+        event.preventDefault();
+
+        const touch = event.changedTouches[0];
+
+        const deltaX = Math.abs(touch.clientX - initialMousePosition.x);
+        const deltaY = Math.abs(touch.clientY - initialMousePosition.y);
+        const movementThreshold = 5; // Adjust as needed
+        
+        if (deltaX <= movementThreshold && deltaY <= movementThreshold) {
+          // Handle click if movement is small
+          handlePlanetClick(initialMousePosition); // Pass mousedown position
+        }
+      }
 
       const handleMouseMove = (event: MouseEvent) => {
         if (!isDragging) return; // Only rotate the camera while dragging
@@ -184,6 +212,25 @@ const ThreeScene: React.FC = () => {
         // Update initial mouse position for the next movement
         initialMousePosition = { x: event.clientX, y: event.clientY };
       };
+
+      const handleTouchMove = (event: TouchEvent) => {
+        if (!isDragging) return; // Only rotate the camera while dragging
+
+        event.preventDefault();
+
+        // Calculate the change in mouse position (delta)
+        const touch = event.touches[0];
+
+        const deltaMove = {
+          x: touch.clientX - initialMousePosition.x,
+          y: touch.clientY - initialMousePosition.y,
+        };
+
+        rotateCamera(deltaMove);  
+
+        // Update initial mouse position for the next movement
+        initialMousePosition = { x: touch.clientX, y: touch.clientY };
+      }
 
       const rotateCamera = (deltaMove: { x: number; y: number }) => {
         const rotationSpeed = 0.005;
@@ -228,54 +275,58 @@ const ThreeScene: React.FC = () => {
         }
       }
 
-const handlePlanetClick = (mousePosition: { x: number; y: number }) => {
-  const mouse = new THREE.Vector2(
-    (mousePosition.x / window.innerWidth) * 2 - 1,
-    -(mousePosition.y / window.innerHeight) * 2 + 1
-  );
+      const handlePlanetClick = (mousePosition: { x: number; y: number }) => {
+        const mouse = new THREE.Vector2(
+          (mousePosition.x / window.innerWidth) * 2 - 1,
+          -(mousePosition.y / window.innerHeight) * 2 + 1
+        );
 
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, camera);
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObjects(scene.children, true);
-  const meshes = intersects.filter((intersection) => intersection.object.type === 'Mesh');
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        const meshes = intersects.filter((intersection) => intersection.object.type === 'Mesh');
 
-  if (meshes.length > 0) {
-    const clickedMesh = meshes[0].object as THREE.Mesh;
-    const planetName = clickedMesh.name;
+        if (meshes.length > 0) {
+          const clickedMesh = meshes[0].object as THREE.Mesh;
+          const planetName = clickedMesh.name;
 
-    if (!planetName) return;
+          if (!planetName) return;
 
-    if (planetAudioMap.has(planetName)) {
-      const player = planetAudioMap.get(planetName);
+          if (planetAudioMap.has(planetName)) {
+            const player = planetAudioMap.get(planetName);
 
-      if (player?.state === 'started') {
-        player.stop();
-        console.log(`${planetName} audio stopped.`);
-        removePlanetOutline(planetName);
-      } else {
-        player?.start()
-        console.log(`${planetName} audio started.`);
-        addPlanetOutline(clickedMesh, planetName);
-      }
-    } else {
+            if (player?.state === 'started') {
+              player.stop();
+              console.log(`${planetName} audio stopped.`);
+              removePlanetOutline(planetName);
+            } else {
+              player?.start()
+              console.log(`${planetName} audio started.`);
+              addPlanetOutline(clickedMesh, planetName);
+            }
+          } else {
 
-      const player = new Tone.Player(`/audio/${planetName}.mp3`, () => {
-        player.loop = true;
-        player.volume.value = -10;
-        player.start();
-        console.log(`${planetName} audio started.`);
-        addPlanetOutline(clickedMesh, planetName);
-      }).toDestination();
+            const player = new Tone.Player(`/audio/${planetName}.mp3`, () => {
+              player.loop = true;
+              player.volume.value = -10;
+              player.start();
+              console.log(`${planetName} audio started.`);
+              addPlanetOutline(clickedMesh, planetName);
+            }).toDestination();
 
-      planetAudioMap.set(planetName, player);
-    }
-  }
-};
+            planetAudioMap.set(planetName, player);
+          }
+        }
+      };
 
       window.addEventListener('mousedown', handleMouseDown);
       window.addEventListener('mouseup', handleMouseUp);
       window.addEventListener('mousemove', handleMouseMove);
+
+      window.addEventListener('touchstart', handleTouchDown);
+      window.addEventListener('touchend', handleTouchUp);
+      window.addEventListener('touchmove', handleTouchMove);
 
       const renderScene = () => {
         renderer.render(scene, camera);
@@ -346,6 +397,9 @@ const handlePlanetClick = (mousePosition: { x: number; y: number }) => {
         window.removeEventListener('mousedown', handleMouseDown);
         window.removeEventListener('mouseup', handleMouseUp);
         window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('touchstart', handleTouchDown);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchUp);
 
         planetAudioMap.forEach((player) => {
           if (player.state === 'started') player.stop();
